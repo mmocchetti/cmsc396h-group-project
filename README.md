@@ -10,3 +10,5 @@ Then you can run the script by running the command
 $ /path/to/python2.7.14/python /path/to/path/script/weather_console.py
 if your on windows
 $ /path/to/python2.7.14/python.exe /path/to/path/script/weather_console.py
+
+Lastly, before you run weather_console.py you should run upload_data.py
