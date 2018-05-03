@@ -16,7 +16,7 @@ def safe_str_convert(convert_val):
     else:
         return "None"
 
-def addCategories(sysArgv0, cursor):
+def addCategories(cursor):
 	categories_FilePath = os.path.dirname(sys.argv[0]) + "\\categories.txt"
  	file = open(categories_FilePath, 'r')	# Change file according to where it is for you
  	cats = file.read().split("\n")
@@ -46,25 +46,26 @@ result = cursor.fetchone()
 cmd = 'CREATE TABLE IF NOT EXISTS res_categories (res_category VARCHAR(225))'
 cursor.execute(cmd)
 
-isExist = raw_input("Does res_categories table already exist for you? (y/n):");
+# Creates new table
+cmd = 'CREATE TABLE IF NOT EXISTS res_business (business_id VARCHAR(22), category VARCHAR(225), state VARCHAR(225))'
+cursor.execute(cmd)
+
+isExist = raw_input("Do you want to clear previous data in res_categories table? (y/n):");
 if isExist.lower() == "y":
 	query = 'TRUNCATE TABLE res_categories'
 	cursor.execute(query)
-	addCategories(sys.argv[0], cursor)
-	db.commit()
+
+addCategories(cursor)
+db.commit()
 
 # If the table already exists then remove it
-isExist = raw_input("Does this table already exist for you? (y/n):");
+isExist = raw_input("Do you want to clear previous data in res_business? (y/n):");
 if isExist.lower() == "y":
 	query = 'TRUNCATE TABLE res_business'
 	cursor.execute(query)
 
-# Creates new table
-cmd = 'CREATE TABLE IF NOT EXISTS res_business (business_id VARCHAR(22), category VARCHAR(225))'
-cursor.execute(cmd)
-
 # Inserts all data that is the res_categories table into the res_business table
-insertCmd = "INSERT INTO res_business (business_id, category) SELECT business.id, category FROM business INNER JOIN category ON category.business_id = business.id WHERE category IN (SELECT res_category FROM res_categories)"
+insertCmd = "INSERT INTO res_business (business_id, category, state) SELECT business.id, category, state FROM business INNER JOIN category ON category.business_id = business.id WHERE category IN (SELECT res_category FROM res_categories)"
 
 cursor.execute(insertCmd)
 db.commit()
