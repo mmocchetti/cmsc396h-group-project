@@ -4,6 +4,119 @@ import mysql.connector
 import sys
 import unicodedata
 
+class TempHolder:
+    range_start = 0
+    range_end = 0
+    
+    star_count_lst = [0,0,0,0,0,0]
+    counter = 0
+    
+    def __init__(self, in_range_start, in_range_end):
+        self.range_start = in_range_start
+        self.range_end = in_range_end
+        self.counter = 0
+        self.star_count_lst = [0,0,0,0,0,0]
+        
+    def is_in_temp_range(self, temp):
+        #print("test0: " + str(temp) + " | " + str(self.range_start) + " | " + str(self.range_end))
+        if self.range_start <= temp and temp < self.range_end:
+            return True
+        else:
+            return False
+            
+    def add_rating(self, rating):
+        #print("test1")
+        if int(rating) == 0:
+            self.star_count_lst[0] += 1
+        if int(rating) == 1:
+            self.star_count_lst[1] += 1
+        if int(rating) == 2:
+            self.star_count_lst[2] += 1
+        if int(rating) == 3:
+            self.star_count_lst[3] += 1
+        if int(rating) == 4:
+            self.star_count_lst[4] += 1
+        if int(rating) == 5:
+            self.star_count_lst[5] += 1
+        
+        self.counter += 1
+        
+    def __str__(self):
+        '''
+        if self.range_start == 0:
+            return "Temp: " + str(self.range_start) + "-" + str(self.range_end) + "    Total: " + str(self.counter) + " | " + str(self.star_count_lst)
+        if self.range_start >= 10 and self.range_start <= 80:
+            return "Temp: " + str(self.range_start) + "-" + str(self.range_end) + "   Total: " + str(self.counter) + " | " + str(self.star_count_lst)
+        if self.range_start == 90:
+            return "Temp: " + str(self.range_start) + "-" + str(self.range_end) + "  Total: " + str(self.counter) + " | " + str(self.star_count_lst)
+        
+        return "Temp: " + str(self.range_start) + "-" + str(self.range_end) + " Total: " + str(self.counter) + " | " + str(self.star_count_lst)
+        '''
+        
+        return_str = ""
+        
+        return_str += "Temp: " + str(self.range_start) + "-" + str(self.range_end) + "\n"
+        return_str += "Count: " + str(self.counter) + "\n"
+
+        if self.star_count_lst[0] == 0:
+            return_str += "0 Stars: 0.00%\n" 
+        else:
+            return_str += "0 Stars: " + str(round((self.star_count_lst[0] / (self.counter * 1.0)), 4) * 100) + "%\n"
+           
+        if self.star_count_lst[1] == 0:
+            return_str += "1 Stars: 0.00%\n"
+        else:
+            return_str += "1 Stars: " + str(round((self.star_count_lst[1] / (self.counter * 1.0)), 4) * 100) + "%\n"
+            
+        if self.star_count_lst[2] == 0:
+            return_str += "2 Stars: 0.00%\n"
+        else:
+            return_str += "2 Stars: " + str(round((self.star_count_lst[2] / (self.counter * 1.0)), 4) * 100) + "%\n"
+            
+        if self.star_count_lst[3] == 0:
+            return_str += "3 Stars: 0.00%\n"
+        else:
+            return_str += "3 Stars: " + str(round((self.star_count_lst[3] / (self.counter * 1.0)), 4) * 100) + "%\n"
+            
+        if self.star_count_lst[4] == 0:
+            return_str += "4 Stars: 0.00%\n"
+        else:
+            return_str += "4 Stars: " + str(round((self.star_count_lst[4] / (self.counter * 1.0)), 4) * 100) + "%\n"
+            
+        if self.star_count_lst[5] == 0:
+            return_str += "5 Stars: 0.00%\n"
+        else:
+            return_str += "5 Stars: " + str(round((self.star_count_lst[5] / (self.counter * 1.0)), 4) * 100) + "%\n"
+        
+        return return_str
+        
+class TempAnalysis:
+    temp_holder_lst = list()
+    
+    def __init__(self):
+        temp_counter = 0
+        
+        while temp_counter < 110:
+            self.temp_holder_lst.append(TempHolder(temp_counter, temp_counter + 10))
+            temp_counter += 10
+    
+    def add_rating(self, rating, temp):
+        for temp_holder in self.temp_holder_lst:
+            if temp_holder.is_in_temp_range(temp):
+                temp_holder.add_rating(rating)
+                return True
+        
+        return False
+        
+    def __str__(self):
+        return_str = "Breakdown by Temperature:\n"
+        return_str += "-------------------------\n"
+        
+        for temp_holder in self.temp_holder_lst:
+            return_str += str(temp_holder) + "\n"
+    
+        return return_str
+
 def safe_str_convert(convert_val):
     if type(convert_val) == unicode:
         return unicodedata.normalize('NFKD', convert_val).encode('ascii','ignore')
@@ -44,7 +157,9 @@ business_list = get_list_of_business(max_rows, cursor)
     
 star_counter = [0,0,0,0,0,0]
 counter = 0
-    
+
+temp_analysis = TempAnalysis()
+
 print("Review ID:             | Business ID:           | Date of Review      | * | Temperature: | State: |")
 print("-----------------------+------------------------+---------------------+---+--------------+--------+------------------------------")
     
@@ -53,7 +168,6 @@ for individual_business in business_list:
     cursor.execute(query)
     
     for id, name, state in cursor:
-        #print(individual_business[0] + " | " + str(id) + " | " + individual_business[3] + " | " + individual_business[2] + " |   " + str(state) + "   | " + str(name))
 
         query = ("SELECT state, myDate, temp FROM weather WHERE (state='" + str(state) + "') AND (myDate='" + individual_business[3] + "')")
         weather_cursor.execute(query)
@@ -80,9 +194,14 @@ for individual_business in business_list:
                 star_counter[4] = star_counter[4] + 1 
             if int(individual_business[2]) == 5:
                 star_counter[5] = star_counter[5] + 1
+                
+            temp_analysis.add_rating(individual_business[2], temp)
+                    
            
 print("\n====================================================================================================================================\n")
-           
+     
+print("Overall star breakdown:")
+print("-------------------------")  
 print("Count: " + str(counter))
 
 if star_counter[0] == 0:
@@ -114,5 +233,9 @@ if star_counter[5] == 0:
     print("5 Stars: 0.00%")
 else:
     print("5 Stars: " + str(round((star_counter[5] / (counter * 1.0)), 4) * 100) + "%")
+    
+print("\n\n")
+
+print(str(temp_analysis))
             
             
