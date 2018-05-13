@@ -1,14 +1,16 @@
+#!/usr/bin/env python
 import datetime
 import mysql.connector
 import mysql_user_config
 import unicodedata	
 import os
 import sys
-import xlsxwriter
+import matplotlib.pyplot as plt
+import plotly.plotly as py
 
 # Gets a list of all the data about all businesses
 def get_list_of_business(cursor):
-	query = ("SELECT id, business_id, stars, date FROM review LIMIT 50000")	# For testing: Limit the amount of data read
+	query = ("SELECT id, business_id, stars, date FROM review")# LIMIT 10000")	# For testing: Limit the amount of data read
 	cursor.execute(query)
 
 	business_list = list()
@@ -35,6 +37,12 @@ def safe_str_convert(convert_val):
 	else:
 		return "None"
 
+def arrToStr(arr):
+	toRet = ""
+	for s in arr:
+		toRet += str(s) + ", "
+	return toRet
+
 
 #########################
 # Execution Starts Here #
@@ -53,18 +61,7 @@ weather_cursor = weather_cnx.cursor()
 # Gets list of all businesses
 business_list = get_list_of_business(cursor)
 
-# Sets up xlswriter for the excel file
-workbook = xlsxwriter.Workbook('weatherData.xlsx')
-
-# Adds a sheet for each type of weather
-ws_fog = workbook.add_worksheet('Fog')
-ws_rain = workbook.add_worksheet('Rain')
-ws_snow = workbook.add_worksheet('Snow')
-ws_hail = workbook.add_worksheet('Hail')
-ws_thunder = workbook.add_worksheet('Thunder')
-ws_tornado = workbook.add_worksheet('Tornado')
-
-row = 0
+nReviews = 0
 
 # Arrays for the star count for each type of weather
 arr_fog = [0,0,0,0,0]
@@ -78,18 +75,15 @@ sys.stdout.write("Progress: [")
 
 # Adds data for each type of weather
 for individual_business in business_list:
-	query = ("SELECT id, name, state FROM res_business WHERE (id='" + individual_business[1] +"')")
-	cursor.execute(query)
+	cursor.execute("SELECT state FROM res_business WHERE (id='" + individual_business[1] +"')")
 
-	for id, name, state in cursor:
+	for state in cursor:
+		weather_cursor.execute("SELECT frshtt FROM weather WHERE state='" + state[0] + "' AND myDate='" + individual_business[3] + "'")
 
-		query = ("SELECT state, myDate, temp, frshtt FROM weather WHERE (state='" + str(state) + "') AND (myDate='" + individual_business[3] + "')")
-		weather_cursor.execute(query)
-
-		for state, myDate, temp, frshtt in weather_cursor:
-			curr_frshtt = list(frshtt)
+		for frshtt in weather_cursor:
+			curr_frshtt = list(frshtt[0])
 			curr_ratingIndex = int(individual_business[2]) - 1
-			
+
 			if curr_frshtt[0] == u'1':		# Fog
 				arr_fog[curr_ratingIndex] += 1
 
@@ -108,118 +102,73 @@ for individual_business in business_list:
 			if curr_frshtt[5] == u'1': 	# Tornado or Funnel Cloud
 				arr_tornado[curr_ratingIndex] += 1
 
-			row += 1
-			if row % 100 == 0:
+			nReviews += 1
+			if nReviews % 10000 == 0:
 				sys.stdout.write('#')
 
-# Adds all data to their respective worksheet
-for x in range(0,5):
-	ws_fog.write(x, 0, x+1)
-	ws_fog.write(x, 1, arr_fog[x])
-	
-	ws_rain.write(x, 0, x+1)
-	ws_rain.write(x, 1, arr_rain[x])
-	
-	ws_snow.write(x, 0, x+1)
-	ws_snow.write(x, 1, arr_snow[x])
-	
-	ws_hail.write(x, 0, x+1)
-	ws_hail.write(x, 1, arr_hail[x])
-	
-	ws_thunder.write(x, 0, x+1)
-	ws_thunder.write(x, 1, arr_thunder[x])
-	
-	ws_tornado.write(x, 0, x+1)
-	ws_tornado.write(x, 1, arr_tornado[x])
-	
 print "]"
-print "All Data has been uploaded to the excel file!"
+print safe_str_convert(nReviews) + " reviews have been processed!"
+print "All Data has been uploaded!"
+	
+# Makes graph for each of the data
+rng = [1,2,3,4,5]
+width = 1/1.5
+plt.bar(rng, arr_fog, width, color="blue")
+fig = plt.gcf()
+plot_url = py.plot_mpl(fig, filename='mpl-test-bar.png')
+print "Fog:"
+print arr_fog
+fig.savefig("fog.png")
 
-# Creates the Column graph charts
-chart_fog = workbook.add_chart({'type': 'column'})
-chart_rain = workbook.add_chart({'type': 'column'})
-chart_snow = workbook.add_chart({'type': 'column'})
-chart_hail = workbook.add_chart({'type': 'column'})
-chart_thunder = workbook.add_chart({'type': 'column'})
-chart_tornado = workbook.add_chart({'type': 'column'})
+plt.bar(rng, arr_rain, width, color="blue")
+fig = plt.gcf()
+plot_url = py.plot_mpl(fig, filename='mpl-test-bar.png')
+print "Rain:"
+print arr_rain
+fig.savefig("rain.png")
 
-# Sets Axis' for each of the weather type graphs
-# Fog
-chart_fog.add_series({
-    'name': '',
-    'categories': '=Fog!$A$1:$A$5',
-    'values': '=Fog!$B$1:$B$5',
-})
-chart_fog.set_title ({'name': 'Fog vs. Star Rating'})
-chart_fog.set_x_axis({'name': 'Star Rating'})
-chart_fog.set_y_axis({'name': 'Fog'})
+plt.bar(rng, arr_snow, width, color="blue")
+fig = plt.gcf()
+plot_url = py.plot_mpl(fig, filename='mpl-test-bar.png')
+print "Snow:"
+print arr_snow
+fig.savefig("snow.png")
 
-# Rain
-chart_rain.add_series({
-    'name': '',
-    'categories': '=Rain!$A$1:$A$5',
-    'values': '=Rain!$B$1:$B$5',
-})
-chart_rain.set_title ({'name': 'Rain vs. Star Rating'})
-chart_rain.set_x_axis({'name': 'Star Rating'})
-chart_rain.set_y_axis({'name': 'Rain'})
+plt.bar(rng, arr_hail, width, color="blue")
+fig = plt.gcf()
+plot_url = py.plot_mpl(fig, filename='mpl-test-bar.png')
+print "Hail:"
+print arr_hail
+fig.savefig("hail.png")
 
-# Snow
-chart_snow.add_series({
-    'name': '',
-    'categories': '=Snow!$A$1:$A$5',
-    'values': '=Snow!$B$1:$B$5',
-})
-chart_snow.set_title ({'name': 'Snow vs. Star Rating'})
-chart_snow.set_x_axis({'name': 'Star Rating'})
-chart_snow.set_y_axis({'name': 'Snow'})
+plt.bar(rng, arr_thunder, width, color="blue")
+fig = plt.gcf()
+plot_url = py.plot_mpl(fig, filename='mpl-test-bar.png')
+print "Thunder:"
+print arr_thunder
+fig.savefig("thunder.png")
 
-# Hail
-chart_hail.add_series({
-    'name': '',
-    'categories': '=Hail!$A$1:$A$5',
-    'values': '=Hail!$B$1:$B$5',
-})
-chart_hail.set_title ({'name': 'Hail vs. Star Rating'})
-chart_hail.set_x_axis({'name': 'Star Rating'})
-chart_hail.set_y_axis({'name': 'Hail'})
+plt.bar(rng, arr_rain, width, color="blue")
+fig = plt.gcf()
+plot_url = py.plot_mpl(fig, filename='mpl-test-bar.png')
+print "Tornado:"
+print arr_tornado
+fig.savefig("Tornado.png")
 
-# Thunder
-chart_thunder.add_series({
-    'name': '',
-    'categories': '=Thunder!$A$1:$A$5',
-    'values': '=Thunder!$B$1:$B$5',
-})
-chart_thunder.set_title ({'name': 'Thunder vs. Star Rating'})
-chart_thunder.set_x_axis({'name': 'Star Rating'})
-chart_thunder.set_y_axis({'name': 'Thunder'})
+# Prints final data to a text file, if it is needed later
+data = open("weatherData.txt", "w")
+data.write("Fog: ")
+data.write(arrToStr(arr_fog) + "\n")
+data.write("Rain: ")
+data.write(arrToStr(arr_rain) + "\n")
+data.write("Snow: ")
+data.write(arrToStr(arr_snow) + "\n")
+data.write("Hail: ")
+data.write(arrToStr(arr_hail) + "\n")
+data.write("Thunder: ")
+data.write(arrToStr(arr_thunder) + "\n")
+data.write("Tornado: ")
+data.write(arrToStr(arr_tornado) + "\n")
+data.close()
 
-# Tornado
-chart_tornado.add_series({
-    'name': '',
-    'categories': '=Tornado!$A$1:$A$5',
-    'values': '=Tornado!$B$1:$B$5',
-})
-chart_tornado.set_title ({'name': 'Tornado vs. Star Rating'})
-chart_tornado.set_x_axis({'name': 'Star Rating'})
-chart_tornado.set_y_axis({'name': 'Tornado'})
-
-# Sets the style for each of the charts
-chart_fog.set_style(2)
-chart_rain.set_style(2)
-chart_snow.set_style(2)
-chart_hail.set_style(2)
-chart_thunder.set_style(2)
-chart_tornado.set_style(2)
-
-# Inserts all the charts into their respective sheet
-ws_fog.insert_chart('D2', chart_fog, {'x_offset': 25, 'y_offset': 10})
-ws_rain.insert_chart('D2', chart_rain, {'x_offset': 25, 'y_offset': 10})
-ws_snow.insert_chart('D2', chart_snow, {'x_offset': 25, 'y_offset': 10})
-ws_hail.insert_chart('D2', chart_hail, {'x_offset': 25, 'y_offset': 10})
-ws_thunder.insert_chart('D2', chart_thunder, {'x_offset': 25, 'y_offset': 10})
-ws_tornado.insert_chart('D2', chart_tornado, {'x_offset': 25, 'y_offset': 10})
-
-print "All Graphs Made"
-
-workbook.close()
+print "All Graphs Made and All Data Collected"
