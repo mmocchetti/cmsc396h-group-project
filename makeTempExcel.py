@@ -4,11 +4,13 @@ import mysql_user_config
 import unicodedata	
 import os
 import sys
-import xlsxwriter
+import numpy as np
+import matplotlib.pyplot as plt
+import plotly.plotly as py
 
 # Gets a list of all the data about all businesses
 def get_list_of_business(cursor):
-	query = ("SELECT id, business_id, stars, date FROM review LIMIT 1000")	# For testing: Limit the amount of data read
+	query = ("SELECT id, business_id, stars, date FROM review LIMIT 100")	# For testing: Limit the amount of data read
 	cursor.execute(query)
 
 	business_list = list()
@@ -52,50 +54,39 @@ weather_cursor = weather_cnx.cursor()
 # Gets list of all businesses
 business_list = get_list_of_business(cursor)
 
-# Sets up xlswriter for the excel file
-workbook = xlsxwriter.Workbook('tempData.xlsx')
-worksheet = workbook.add_worksheet()#'TempData')
-row = 0
+line = plt.figure()
+x_values = []
+y_values = []
+nReviews = 0
 
 sys.stdout.write("Progress: [")
 
 for individual_business in business_list:
-	query = ("SELECT id, name, state FROM res_business WHERE (id='" + individual_business[1] +"')")
+	query = ("SELECT state FROM res_business WHERE (id='" + individual_business[1] +"')")
 	cursor.execute(query)
 
-	for id, name, state in cursor:
+	for state in cursor:
 
-		query = ("SELECT state, myDate, temp FROM weather WHERE (state='" + str(state) + "') AND (myDate='" + individual_business[3] + "')")
+		query = ("SELECT temp FROM weather WHERE (state='" + state[0] + "') AND (myDate='" + individual_business[3] + "')")
 		weather_cursor.execute(query)
 
-		for state, myDate, temp in weather_cursor:
-			worksheet.write(row, 0, int(individual_business[2]))
-			worksheet.write(row, 1, int(temp))
-			row += 1
-			sys.stdout.write('#')
+		for temp in weather_cursor:
+			#plt.scatter(individual_business[2], temp, "x")
+			x_values.append(individual_business[2])
+			y_values.append(temp)
+
+			nReviews += 1
+			if nReviews % 10000 == 0:
+				sys.stdout.write('#')
 
 print "]"
-print "All Data has been uploaded to the excel file!"
+print safe_str_convert(nReviews) + " reviews have been processed!"
+print "All Data has been uploaded!"
 
-# Creates the Scatter Plot
-chart1 = workbook.add_chart({'type': 'scatter'})
+fig = plt.gcf()
+#plot_url = py.plot_mpl(line, filename='mplTempScatterPlot')
+x_values = np.sort(x_values).flatten()
+plt.scatter(x_values, y_values, marker='x', color='blue')
+fig.savefig("tempScatterPlot.png")
 
-safe_row = safe_str_convert(row)
-
-chart1.add_series({
-    'name': '',
-    'categories': '=Sheet1!$A$0:$A$' + safe_row,
-    'values': '=Sheet1!$B$0:$B$' + safe_row,
-})
-
-chart1.set_title ({'name': 'Temperature vs. Star Rating'})
-chart1.set_x_axis({'name': 'Star Rating'})
-chart1.set_y_axis({'name': 'Temperature (F)'})
-
-chart1.set_style(2)	# GUESS AND CHECK WITH SMALL DATA!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-worksheet.insert_chart('D2', chart1, {'x_offset': 25, 'y_offset': 10})
-
-print "The Scatter Plot Has been Created!"
-
-workbook.close()
+print "Scatter Plot has been Created!"
